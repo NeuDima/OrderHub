@@ -32,7 +32,6 @@ public class OrderServiceImpl implements OrderService {
     private final OrderRepository orderRepository;
     private final OrderReadMapper orderReadMapper;
     private final OrderCreateEditMapper orderCreateEditMapper;
-    private final PaymentProducer paymentProducer;
     private final OrderCreateEventMapper orderCreateEventMapper;
 
     private final OutboxMapper outboxMapper;

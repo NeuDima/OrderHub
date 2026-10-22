@@ -3,8 +3,6 @@ package com.neupokoev.orderservice.messaging.consumer;
 import com.neupokoev.contracts.order.commands.MarkOrderFailedCommand;
 import com.neupokoev.contracts.order.commands.MarkOrderPaidCommand;
 import com.neupokoev.orderservice.service.OrderService;
-import com.neupokoev.contracts.payment.events.PaymentCompletedEvent;
-import com.neupokoev.contracts.payment.events.PaymentFailedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;

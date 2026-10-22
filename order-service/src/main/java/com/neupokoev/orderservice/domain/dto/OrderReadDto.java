@@ -4,7 +4,6 @@ import com.neupokoev.orderservice.domain.entity.enums.OrderStatus;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.Date;
 
 public record OrderReadDto(
         Long id,
