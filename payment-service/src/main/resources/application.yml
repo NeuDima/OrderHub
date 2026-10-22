@@ -1,0 +1,48 @@
+spring:
+  config:
+    import: optional:file:.env[.properties]
+
+  application:
+   name: PaymentService
+
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_PAYMENT_HOST}:${POSTGRES_PAYMENT_PORT}/${POSTGRES_PAYMENT_DB}
+    username: ${POSTGRES_PAYMENT_USER}
+    password: ${POSTGRES_PAYMENT_PASSWORD}
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    consumer:
+      group-id: payment-group
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
+    producer:
+      acks: all
+      retries: 3
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
+      compression-type: gzip
+      properties:
+        enable.idempotence: true
+        spring.json.add.type.headers: true
+
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+
+server:
+  port: 8083
+
+app:
+  topic:
+    payment-event: "payment.events"
+    payment-command: "payment.command"

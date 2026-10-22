@@ -1,0 +1,37 @@
+spring:
+  config:
+    import: optional:file:.env[.properties]
+
+  application:
+    name: OrderService
+
+  datasource:
+    url: jdbc:postgresql://localhost:${POSTGRES_ORDER_PORT}/${POSTGRES_ORDER_DB}
+    username: ${POSTGRES_ORDER_USER}
+    password: ${POSTGRES_ORDER_PASSWORD}
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    consumer:
+      group-id: order-service-group
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
+    producer:
+      acks: all
+      retries: 3
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
+      compression-type: gzip
+      properties:
+        enable.idempotence: true
+        spring.json.add.type.headers: true
+
+server:
+  port: 8082
+
+app:
+  topic:
+    order-create-event-topic: "order.create.event"
+    order-command-topic: "order.command"
