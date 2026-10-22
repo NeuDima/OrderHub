@@ -1,0 +1,139 @@
+services:
+  postgres-order-service:
+    image: postgres:16-alpine
+    container_name: postgres_order_service
+    ports:
+      - "${POSTGRES_ORDER_PORT}:5432"  # Проброс порта для внешних подключений (например, DBeaver)
+    environment:
+      # ВСЕ секреты берутся из .env файла, НЕ хардкодим!
+      POSTGRES_USER: ${POSTGRES_ORDER_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_ORDER_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_ORDER_DB}
+    volumes:
+      - postgres_order_data:/var/lib/postgresql/data  # Персистентность данных БД
+    restart: unless-stopped  # Автоматический перезапуск при падении (production)
+    command:
+      # Тюнинг PostgreSQL для лучшей производительности
+      - "postgres"
+      - "-c"
+      - "max_connections=100"      # Максимум подключений (не даём упасть от перегрузки)
+      - "-c"
+      - "shared_buffers=256MB"      # Кэш в памяти (ускоряет запросы)
+      - "-c"
+      - "wal_level=logical"
+    networks:
+      - saga-learning-network  # Изолированная сеть для сервисов
+    healthcheck:
+      # Проверка, что БД действительно готова принимать подключения
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_ORDER_USER} -d ${POSTGRES_ORDER_DB}"]
+      interval: 10s   # Проверять каждые 10 секунд
+      timeout: 5s     # Ждать ответа не больше 5 секунд
+      retries: 5      # 5 неудач = контейнер нездоров
+
+  postgres-payment-service:
+    image: postgres:16-alpine
+    container_name: postgres_payment_service
+    ports:
+      - "${POSTGRES_PAYMENT_PORT}:5432"  # Проброс порта для внешних подключений (например, DBeaver)
+    environment:
+      # ВСЕ секреты берутся из .env файла, НЕ хардкодим!
+      POSTGRES_USER: ${POSTGRES_PAYMENT_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PAYMENT_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_PAYMENT_DB}
+    volumes:
+      - postgres_payment_data:/var/lib/postgresql/data  # Персистентность данных БД
+    restart: unless-stopped  # Автоматический перезапуск при падении (production)
+    command:
+      # Тюнинг PostgreSQL для лучшей производительности
+      - "postgres"
+      - "-c"
+      - "max_connections=100"      # Максимум подключений (не даём упасть от перегрузки)
+      - "-c"
+      - "shared_buffers=256MB"      # Кэш в памяти (ускоряет запросы)
+      - "-c"
+      - "wal_level=logical"
+    networks:
+      - saga-learning-network  # Изолированная сеть для сервисов
+    healthcheck:
+      # Проверка, что БД действительно готова принимать подключения
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_PAYMENT_USER} -d ${POSTGRES_PAYMENT_DB}" ]
+      interval: 10s   # Проверять каждые 10 секунд
+      timeout: 5s     # Ждать ответа не больше 5 секунд
+      retries: 5      # 5 неудач = контейнер нездоров
+
+  kafka:
+    image: apache/kafka:3.8.0
+    container_name: kafka
+    ports:
+      - "9092:9092"   # PLAINTEXT для внешних подключений (хост, инструменты)
+    environment:
+      CLUSTER_ID: ${CLUSTER_ID}   # ваш UUID
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: "broker,controller"
+
+      # Два протокола: внутренний для Compose и внешний для хоста
+      KAFKA_LISTENERS: "INTERNAL://0.0.0.0:29092,PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093"
+      KAFKA_ADVERTISED_LISTENERS: "INTERNAL://kafka:29092,PLAINTEXT://host.docker.internal:9092"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "INTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT"
+
+
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@localhost:9093"
+
+      # Параметры для single‑node
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 5000
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_LOG_DIRS: "/var/lib/kafka/data"
+
+    networks:
+      - saga-learning-network
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # резолвит host.docker.internal на хост (Linux тоже)
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: saga-learning
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: "kafka:29092"   # используем внутренний INTERNAL listener
+    depends_on:
+      - kafka
+    networks:
+      - saga-learning-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    volumes:
+      - redis_data:/date
+    command: redis-server --appendonly yes
+    networks:
+      - saga-learning-network
+
+volumes:
+  postgres_order_data:
+    name: order_service_postgres_data
+  postgres_payment_data:
+    name: payment_service_postgres_data
+  kafka_data:
+    name: kafka_data
+  redis_data:
+    name: redis_data
+
+# -------------------------------------------------------------------------------
+# Изолированная сеть для сервисов
+# -------------------------------------------------------------------------------
+networks:
+  saga-learning-network:
+    name: saga-learning-network
+    driver: bridge  # Стандартный драйвер для изоляции
